@@ -2,10 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { userPublicSelect } from './user.constants';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(createUserDto: CreateUserDto) {
     const user = await this.prisma.user.create({
@@ -18,41 +19,17 @@ export class UsersService {
 
   async findAll() {
     return this.prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        ieeeNumber: true,
-        isVerified: true,
-        role: true,
-        bio: true,
-        avatarUrl: true,
-        createdAt: true,
-      },
+      select: userPublicSelect,
     });
   }
 
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        ieeeNumber: true,
-        isVerified: true,
-        role: true,
-        bio: true,
-        avatarUrl: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: userPublicSelect,
     });
 
-    if (!user) {
-      throw new NotFoundException('Usuário não encontrado');
-    }
-
+    if (!user) throw new NotFoundException('Usuário não encontrado');
     return user;
   }
 
@@ -80,18 +57,7 @@ export class UsersService {
     const user = await this.prisma.user.update({
       where: { id },
       data: updateUserDto,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        ieeeNumber: true,
-        isVerified: true,
-        role: true,
-        bio: true,
-        avatarUrl: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: userPublicSelect,
     });
 
     return user;
@@ -125,4 +91,40 @@ export class UsersService {
       },
     });
   }
+
+  async exportUserData(userId: string) {
+    console.log(`Exportando dados para o usuário: ${userId}`);
+
+    const userData = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        ieeeNumber: true,
+        role: true,
+        isVerified: true,
+        bio: true,
+        avatarUrl: true,
+        createdAt: true,
+        updatedAt: true,
+
+        // Critérios de Aceitação: Incluir eventos, comentários, inscrições
+        createdEvents: true,
+        comments: true,
+        registrations: true,
+      }
+    });
+
+    if (!userData) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
+
+    return {
+      personalData: userData,
+      exportDate: new Date(),
+      format: 'json'
+    };
+  }
 }
+

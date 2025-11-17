@@ -9,6 +9,7 @@ import { CommentsModule } from './modules/comments/comments.module';
 import { RegistrationsModule } from './modules/registrations/registrations.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { MailModule } from './modules/mail/mail.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { MailModule } from './modules/mail/mail.module';
     RegistrationsModule,
     UploadsModule,
     MailModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

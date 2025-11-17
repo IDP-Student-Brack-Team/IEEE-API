@@ -3,6 +3,14 @@ import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+function normalizeText(text: string): string {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, ''); // Remove acentos
+}
+
 async function main() {
   console.log('🌱 Iniciando seed do banco de dados...');
 
@@ -43,20 +51,25 @@ async function main() {
   console.log('✅ Usuário criado:', user.email);
 
   // Criar evento de exemplo
+  const eventTitle = 'Workshop de Inteligência Artificial';
+  const eventDescription = `
+    <h2>Sobre o Workshop</h2>
+    <p>Junte-se a nós para um workshop intensivo sobre Inteligência Artificial e Machine Learning.</p>
+    <h3>O que você vai aprender:</h3>
+    <ul>
+      <li>Fundamentos de IA e ML</li>
+      <li>Redes Neurais e Deep Learning</li>
+      <li>Aplicações práticas em projetos reais</li>
+    </ul>
+  `;
+
   const event = await prisma.event.create({
     data: {
-      title: 'Workshop de Inteligência Artificial',
+      title: eventTitle, // Usamos a variável
+      description: eventDescription, // Usamos a variável
+      titleNormalized: normalizeText(eventTitle),
+      descriptionNormalized: normalizeText(eventDescription),
       slug: 'workshop-ia-2025',
-      description: `
-        <h2>Sobre o Workshop</h2>
-        <p>Junte-se a nós para um workshop intensivo sobre Inteligência Artificial e Machine Learning.</p>
-        <h3>O que você vai aprender:</h3>
-        <ul>
-          <li>Fundamentos de IA e ML</li>
-          <li>Redes Neurais e Deep Learning</li>
-          <li>Aplicações práticas em projetos reais</li>
-        </ul>
-      `,
       shortDescription: 'Workshop intensivo sobre IA e Machine Learning',
       bannerUrl: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1200',
       startDate: new Date('2025-11-01T09:00:00'),

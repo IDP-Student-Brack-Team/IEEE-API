@@ -50,9 +50,13 @@ export class RegistrationsService {
       throw new BadRequestException('Prazo de inscrição encerrado');
     }
 
-    // Verificar limite de participantes
-    if (event.maxParticipants && event._count.registrations >= event.maxParticipants) {
-      throw new BadRequestException('Evento já atingiu o limite de participantes');
+    // Verificar limite de participantes (com status 'confirmed')
+    const registrationsCount = await this.prisma.eventRegistration.count({
+      where: { eventId, status: 'confirmed' },
+    });
+
+    if (event.maxParticipants !== null && registrationsCount >= event.maxParticipants) {
+      throw new BadRequestException('Evento lotado');
     }
 
     // Criar inscrição

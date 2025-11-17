@@ -16,28 +16,19 @@ Copie o arquivo `.env.example` para `.env`:
 cp .env.example .env
 ```
 
-Edite o arquivo `.env` e configure suas variáveis:
+Edite o arquivo `.env` e configure suas variáveis de acordo com seu ambiente.
 
-```env
-# Database (Configure com suas credenciais do PostgreSQL)
-DATABASE_URL="postgresql://user:password@localhost:5432/ieee_db?schema=public"
+> 📝 **Nota**: O arquivo `.env.example` contém todas as variáveis necessárias com documentação detalhada e exemplos de valores. Consulte os comentários no arquivo para entender cada configuração.
 
-# JWT (IMPORTANTE: Mude esta chave em produção!)
-JWT_SECRET="sua-chave-secreta-super-segura-aqui"
-JWT_EXPIRATION="7d"
+**Variáveis principais que você deve configurar:**
 
-# Email (Configure com suas credenciais SMTP)
-MAIL_HOST="smtp.gmail.com"
-MAIL_PORT=587
-MAIL_USER="seu-email@gmail.com"
-MAIL_PASSWORD="sua-senha-de-app"
-MAIL_FROM="IEEE <noreply@ieee.org>"
+- **DATABASE_URL**: String de conexão do PostgreSQL
+- **JWT_SECRET**: Chave secreta para tokens JWT (MUDE em produção!)
+- **MAIL_***: Credenciais do servidor SMTP para envio de e-mails
+- **PORT**: Porta onde a aplicação rodará (padrão: 3000)
+- **CORS_ORIGIN**: URL do frontend permitido
 
-# Aplicação
-PORT=3000
-NODE_ENV="development"
-CORS_ORIGIN="http://localhost:3001"
-```
+Para mais detalhes sobre cada variável, consulte o arquivo `.env.example` que contém documentação completa.
 
 ### 3. Configurar Banco de Dados PostgreSQL
 
@@ -49,7 +40,7 @@ docker-compose up -d postgres
 
 #### Opção B: Instalação Local
 
-1. Instale o PostgreSQL: https://www.postgresql.org/download/
+1. Instale o PostgreSQL: <https://www.postgresql.org/download/>
 2. Crie o banco de dados:
 
 ```bash
@@ -70,19 +61,22 @@ npm run prisma:seed
 ```
 
 Isso criará:
-- **Admin**: admin@ieee.org / Admin@123
-- **User**: user@ieee.org / User@123
+
+- **Admin**: `admin@ieee.org` / `Admin@123`
+- **User**: `user@ieee.org` / `User@123`
 - Um evento de exemplo
 - Comentário de exemplo
 
 ### 6. Iniciar o Servidor
 
 **Desenvolvimento (com hot-reload):**
+
 ```bash
 npm run start:dev
 ```
 
 **Produção:**
+
 ```bash
 npm run build
 npm run start:prod
@@ -90,8 +84,8 @@ npm run start:prod
 
 ### 7. Acessar a API
 
-- **API**: http://localhost:3000/api/v1
-- **Documentação Swagger**: http://localhost:3000/api/docs
+- **API**: <http://localhost:3000/api/v1>
+- **Documentação Swagger**: <http://localhost:3000/api/docs>
 - **Prisma Studio** (Admin do BD): `npm run prisma:studio`
 
 ## 📋 Testando a API
@@ -137,23 +131,24 @@ curl http://localhost:3000/api/v1/users/me \
 
 ## 🐳 Usando Docker
 
-### Iniciar todos os serviços:
+### Iniciar todos os serviços
 
 ```bash
 docker-compose up -d
 ```
 
 Isso iniciará:
+
 - PostgreSQL na porta 5432
 - API na porta 3000
 
-### Ver logs:
+### Ver logs
 
 ```bash
 docker-compose logs -f api
 ```
 
-### Parar os serviços:
+### Parar os serviços
 
 ```bash
 docker-compose down
@@ -185,7 +180,7 @@ npm run start:prod        # Inicia em produção
 
 ## 🔒 Configurando E-mail (Gmail)
 
-1. Acesse: https://myaccount.google.com/apppasswords
+1. Acesse: <https://myaccount.google.com/apppasswords>
 2. Crie uma senha de app
 3. Use essa senha no `.env`:
 
@@ -202,7 +197,7 @@ Para gerenciar o banco de dados visualmente:
 npm run prisma:studio
 ```
 
-Abrirá em: http://localhost:5555
+Abrirá em: <http://localhost:5555>
 
 ## 🚨 Troubleshooting
 
@@ -221,6 +216,7 @@ npm run prisma:generate
 ### Porta 3000 já em uso
 
 Altere no `.env`:
+
 ```env
 PORT=3001
 ```

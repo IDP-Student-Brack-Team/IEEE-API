@@ -13,7 +13,7 @@ import { Role } from '@prisma/client';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Get()
   @UseGuards(RolesGuard)
@@ -29,6 +29,21 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Perfil do usuário' })
   getProfile(@CurrentUser() user: any) {
     return this.usersService.findOne(user.id);
+  }
+
+  @Get('me/export') // LGPD adicionado
+  @ApiOperation({ summary: 'Exportar dados do usuário logado (LGPD)' })
+  @ApiResponse({ status: 200, description: 'JSON com todos os dados do usuário' })
+  exportData(@CurrentUser() user: any) {
+    return this.usersService.exportUserData(user.id);
+  }
+
+  @Delete('me') // Opção de deletar conta
+  @ApiOperation({ summary: 'Deletar conta do usuário logado (LGPD)' })
+  @ApiResponse({ status: 200, description: 'Conta removida com sucesso' })
+  @ApiResponse({ status: 401, description: 'Não autorizado' })
+  deleteProfile(@CurrentUser() user: any) {
+    return this.usersService.remove(user.id);
   }
 
   @Get(':id')

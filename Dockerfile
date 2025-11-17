@@ -1,5 +1,8 @@
-FROM node:18-alpine
+FROM node:24-alpine
  
+# Isso é necessário para o Prisma Engine funcionar no Alpine
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 # Copiar package.json e package-lock.json

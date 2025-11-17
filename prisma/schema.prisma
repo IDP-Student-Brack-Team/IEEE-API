@@ -39,6 +39,7 @@ model User {
   createdEvents Event[]             @relation("EventCreator")
   comments      Comment[]
   registrations EventRegistration[]
+  notifications Notification[]
 
   @@map("users")
 }
@@ -46,8 +47,10 @@ model User {
 model Event {
   id                   String      @id @default(uuid())
   title                String
+  titleNormalized      String?
   slug                 String      @unique
   description          String      @db.Text
+  descriptionNormalized String?    @db.Text
   shortDescription     String?     @map("short_description")
   bannerUrl            String?     @map("banner_url")
   startDate            DateTime    @map("start_date")
@@ -151,4 +154,19 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  title     String
+  message   String
+  type      String // EVENT_REMINDER, NEW_COMMENT, etc.
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
 }
