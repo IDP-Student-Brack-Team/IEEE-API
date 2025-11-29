@@ -8,10 +8,10 @@ Este PR implementa um sistema completo de refresh token com renovação automát
 
 ### Nomenclatura
 
-| Token | Header de Envio | Header de Resposta |
-|-------|-----------------|-------------------|
-| Access Token | `Authorization: Bearer <token>` | `x-new-access-token` |
-| Refresh Token | `x-refresh-token` | `x-new-refresh-token` |
+| Token | Envio (Header) | Envio (Cookie) | Resposta (Header) | Resposta (Cookie) |
+|-------|----------------|----------------|-------------------|-------------------|
+| Access Token | `Authorization: Bearer <token>` | `access_token` | `x-access-token` | `access_token` |
+| Refresh Token | `x-refresh-token` | `refresh_token` | `x-refresh-token` | `refresh_token` |
 
 ### Características
 
@@ -21,12 +21,80 @@ Este PR implementa um sistema completo de refresh token com renovação automát
 | Variável de ambiente | `JWT_EXPIRATION` | `JWT_REFRESH_EXPIRATION` |
 | Segredo | `JWT_SECRET` | `JWT_REFRESH_SECRET` |
 | Flag identificadora | - | `isRefreshToken: true` |
+| Cookie httpOnly | ✅ | ✅ |
+
+## Atualização Automática no Cliente
+
+### Via Cookies (Recomendado para Web)
+
+Os tokens são automaticamente setados como **cookies httpOnly** pelo servidor. O browser gerencia automaticamente:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    FLUXO AUTOMÁTICO COM COOKIES                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  1. Login                                                           │
+│     POST /api/v1/auth/login                                         │
+│     ↓                                                               │
+│     Servidor seta cookies:                                          │
+│     • access_token (httpOnly, 15min)                                │
+│     • refresh_token (httpOnly, 7 dias)                              │
+│                                                                     │
+│  2. Requisições seguintes                                           │
+│     Browser envia cookies automaticamente                           │
+│     ↓                                                               │
+│     Servidor lê cookies e valida                                    │
+│                                                                     │
+│  3. Token expirado                                                  │
+│     Middleware detecta e renova                                     │
+│     ↓                                                               │
+│     Servidor atualiza cookies automaticamente                       │
+│     ↓                                                               │
+│     Cliente NÃO precisa fazer nada!                                 │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Vantagens:**
+- ✅ Atualização 100% automática
+- ✅ Mais seguro (httpOnly previne XSS)
+- ✅ Cliente não gerencia tokens manualmente
+- ✅ Funciona com SSR (Next.js, Nuxt, etc.)
+
+### Via Headers (Para APIs/Mobile)
+
+Para aplicações que não usam cookies (React Native, APIs externas):
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                      FLUXO COM HEADERS                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  Request:                                                           │
+│  ┌─────────────────────────────────────────────────┐                │
+│  │ Authorization: Bearer <access_token>            │                │
+│  │ x-refresh-token: <refresh_token>                │                │
+│  └─────────────────────────────────────────────────┘                │
+│                           ↓                                         │
+│              Token expirado? Middleware renova                      │
+│                           ↓                                         │
+│  Response Headers:                                                  │
+│  ┌─────────────────────────────────────────────────┐                │
+│  │ x-access-token: <novo_access_token>             │                │
+│  │ x-refresh-token: <novo_refresh_token>           │                │
+│  └─────────────────────────────────────────────────┘                │
+│                           ↓                                         │
+│         Cliente atualiza tokens armazenados                         │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
 ## Funcionamento Interno
 
 ### Middleware de Auto-Refresh
 
-O middleware `TokenRefreshMiddleware` intercepta **todas as requisições** e processa automaticamente a renovação de tokens:
+O middleware `TokenRefreshMiddleware` intercepta **todas as requisições**:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -37,138 +105,61 @@ O middleware `TokenRefreshMiddleware` intercepta **todas as requisições** e pr
 │     │                                                               │
 │     ▼                                                               │
 │  ┌─────────────────────────────────────┐                            │
-│  │ Tem header Authorization: Bearer?   │                            │
+│  │ Tem Authorization: Bearer?          │                            │
 │  └─────────────────────────────────────┘                            │
 │     │                                                               │
 │     │ SIM                               NÃO → Continua normalmente  │
 │     ▼                                                               │
 │  ┌─────────────────────────────────────┐                            │
-│  │ Access token é válido?              │                            │
+│  │ Access token válido?                │                            │
 │  └─────────────────────────────────────┘                            │
 │     │                                                               │
 │     │ SIM → Continua normalmente                                    │
 │     │                                                               │
-│     │ NÃO (TokenExpiredError)                                       │
+│     │ NÃO (expirado)                                                │
 │     ▼                                                               │
 │  ┌─────────────────────────────────────┐                            │
-│  │ Tem header x-refresh-token?         │                            │
+│  │ Tem refresh token?                  │                            │
+│  │ (header OU cookie)                  │                            │
 │  └─────────────────────────────────────┘                            │
 │     │                                                               │
-│     │ NÃO → Continua (Guard retorna 401)                            │
+│     │ NÃO → Guard retorna 401                                       │
 │     │                                                               │
 │     │ SIM                                                           │
 │     ▼                                                               │
 │  ┌─────────────────────────────────────┐                            │
-│  │ Refresh token é válido?             │                            │
+│  │ Refresh token válido?               │                            │
 │  └─────────────────────────────────────┘                            │
 │     │                                                               │
-│     │ NÃO → Continua (Guard retorna 401)                            │
+│     │ NÃO → Guard retorna 401                                       │
 │     │                                                               │
 │     │ SIM                                                           │
 │     ▼                                                               │
 │  ┌─────────────────────────────────────┐                            │
 │  │ 1. Gera novos tokens                │                            │
-│  │ 2. Seta x-new-access-token          │                            │
-│  │ 3. Seta x-new-refresh-token         │                            │
-│  │ 4. Atualiza Authorization header    │                            │
+│  │ 2. Seta headers x-access-token      │                            │
+│  │ 3. Seta headers x-refresh-token     │                            │
+│  │ 4. Seta cookies (automático)        │                            │
 │  │ 5. Continua com novo token          │                            │
 │  └─────────────────────────────────────┘                            │
 │     │                                                               │
 │     ▼                                                               │
-│  Response (com novos tokens nos headers)                            │
+│  Response (tokens atualizados)                                      │
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Por que NÃO é necessário usar `/auth/refresh`?
 
-O endpoint `/auth/refresh` existe como **fallback manual**, mas na maioria dos casos **você não precisa usá-lo**. O middleware processa automaticamente:
+O endpoint `/auth/refresh` existe como **fallback manual**, mas na maioria dos casos **você não precisa usá-lo**:
 
-1. **Transparência**: O cliente envia ambos os tokens em cada requisição
-2. **Renovação automática**: Se o access token expirar, o middleware renova silenciosamente
-3. **Resposta com novos tokens**: Os novos tokens são retornados nos headers da resposta
-4. **Sem interrupção**: A requisição original é processada normalmente com o novo token
+1. **Com cookies**: O middleware + cookies fazem tudo automaticamente
+2. **Com headers**: O middleware renova e retorna novos tokens nos headers
 
 **Quando usar `/auth/refresh` manualmente:**
 - Renovação proativa antes da expiração
-- Implementações que não suportam headers customizados
+- Implementações muito específicas
 - Debugging e testes
-
-## Como Usar
-
-### No Login
-
-O endpoint de login retorna ambos os tokens:
-
-```json
-POST /api/v1/auth/login
-{
-  "email": "user@example.com",
-  "password": "senha123"
-}
-
-// Resposta
-{
-  "access_token": "eyJ...",
-  "refresh_token": "eyJ...",
-  "user": { ... }
-}
-```
-
-### Em Requisições Autenticadas
-
-Envie **ambos os tokens** em cada requisição:
-
-```http
-GET /api/v1/users/me
-Authorization: Bearer <access_token>
-x-refresh-token: <refresh_token>
-```
-
-### Tratando a Renovação Automática
-
-Verifique os headers de resposta para novos tokens:
-
-```javascript
-// Exemplo em JavaScript/TypeScript
-async function fetchWithAutoRefresh(url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...options.headers,
-      'Authorization': `Bearer ${getAccessToken()}`,
-      'x-refresh-token': getRefreshToken(),
-    },
-  });
-
-  // Verificar se novos tokens foram emitidos
-  const newAccessToken = response.headers.get('x-new-access-token');
-  const newRefreshToken = response.headers.get('x-new-refresh-token');
-
-  if (newAccessToken && newRefreshToken) {
-    // Atualizar tokens armazenados
-    saveAccessToken(newAccessToken);
-    saveRefreshToken(newRefreshToken);
-  }
-
-  return response;
-}
-```
-
-### Refresh Manual (Opcional)
-
-```json
-POST /api/v1/auth/refresh
-{
-  "refreshToken": "<refresh_token>"
-}
-
-// Resposta
-{
-  "access_token": "eyJ...",
-  "refresh_token": "eyJ..."
-}
-```
 
 ## Variáveis de Ambiente
 
@@ -184,22 +175,31 @@ JWT_EXPIRATION=15m
 
 # Expiração do refresh token (padrão: 7d)
 JWT_REFRESH_EXPIRATION=7d
+
+# Ambiente (para cookies seguros)
+NODE_ENV=production
 ```
 
 ## Segurança
 
+### Cookies httpOnly
+
+- **httpOnly**: Cookies não acessíveis via JavaScript (previne XSS)
+- **secure**: Apenas HTTPS em produção
+- **sameSite**: Proteção contra CSRF
+
 ### Validação Stateless
 
 - **Sem armazenamento de tokens**: Tokens não são salvos no banco de dados
-- **Validação por assinatura**: JWT é validado pela assinatura criptográfica
+- **Validação por assinatura**: JWT validado pela assinatura criptográfica
 - **Validação por expiração**: Tokens expirados são rejeitados automaticamente
 
 ### Boas Práticas
 
 1. **Segredos diferentes**: Use `JWT_REFRESH_SECRET` diferente de `JWT_SECRET`
 2. **HTTPS obrigatório**: Sempre use HTTPS em produção
-3. **Armazenamento seguro**: No cliente, armazene tokens de forma segura (httpOnly cookies ou secure storage)
-4. **Expiração curta**: Mantenha o access token com expiração curta (15-30 minutos)
+3. **Expiração curta**: Access token com 15-30 minutos
+4. **Cookies em produção**: Use a opção de cookies para aplicações web
 
 ## Arquivos Criados/Modificados
 
@@ -210,6 +210,7 @@ JWT_REFRESH_EXPIRATION=7d
 | `src/modules/auth/strategies/jwt-refresh.strategy.ts` | Estratégia Passport para validar refresh tokens |
 | `src/modules/auth/guards/jwt-refresh-auth.guard.ts` | Guard para proteger rotas que requerem refresh token |
 | `src/modules/auth/middleware/token-refresh.middleware.ts` | Middleware de renovação automática |
+| `src/modules/auth/helpers/token-cookies.helper.ts` | Helper para gerenciar cookies de tokens |
 | `src/modules/auth/dto/refresh-token.dto.ts` | DTO para o endpoint de refresh manual |
 
 ### Arquivos Modificados
@@ -217,25 +218,6 @@ JWT_REFRESH_EXPIRATION=7d
 | Arquivo | Modificação |
 |---------|-------------|
 | `src/modules/auth/auth.service.ts` | Adicionado `generateTokens()` e `refreshTokens()` |
-| `src/modules/auth/auth.controller.ts` | Adicionado endpoint `POST /auth/refresh` |
+| `src/modules/auth/auth.controller.ts` | Adicionado cookies, logout e endpoint refresh |
 | `src/modules/auth/auth.module.ts` | Registrado middleware e novos providers |
-
-## Testes
-
-```bash
-# 1. Login
-curl -X POST http://localhost:3000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "admin@ieee.org", "password": "Admin@123"}'
-
-# 2. Requisição com tokens
-curl http://localhost:3000/api/v1/users/me \
-  -H "Authorization: Bearer <access_token>" \
-  -H "x-refresh-token: <refresh_token>"
-
-# 3. Verificar headers de resposta para novos tokens
-curl -i http://localhost:3000/api/v1/users/me \
-  -H "Authorization: Bearer <token_expirado>" \
-  -H "x-refresh-token: <refresh_token>"
-```
-
+| `src/main.ts` | Adicionado cookie-parser e exposedHeaders no CORS |

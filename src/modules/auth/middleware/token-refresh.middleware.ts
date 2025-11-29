@@ -2,6 +2,7 @@ import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { TokenCookiesHelper } from '../helpers/token-cookies.helper';
 
 @Injectable()
 export class TokenRefreshMiddleware implements NestMiddleware {
@@ -13,6 +14,7 @@ export class TokenRefreshMiddleware implements NestMiddleware {
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly tokenCookiesHelper: TokenCookiesHelper,
   ) {
     this.jwtSecret = this.configService.get('JWT_SECRET');
     this.jwtRefreshSecret = this.configService.get('JWT_REFRESH_SECRET') || this.jwtSecret + '_refresh';
@@ -22,7 +24,9 @@ export class TokenRefreshMiddleware implements NestMiddleware {
 
   async use(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers.authorization;
-    const refreshToken = req.headers['x-refresh-token'] as string;
+    
+    // Aceita refresh token via header OU cookie
+    const refreshToken = (req.headers['x-refresh-token'] as string) || req.cookies?.refresh_token;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) return next();
     const accessToken = authHeader.split(' ')[1];
@@ -48,8 +52,14 @@ export class TokenRefreshMiddleware implements NestMiddleware {
           role: refreshPayload.role,
         });
 
-        res.setHeader('x-new-access-token', newTokens.accessToken);
-        res.setHeader('x-new-refresh-token', newTokens.refreshToken);
+        // Seta novos tokens nos headers (para APIs/SPAs)
+        res.setHeader('x-access-token', newTokens.accessToken);
+        res.setHeader('x-refresh-token', newTokens.refreshToken);
+
+        // Seta novos tokens nos cookies (atualização automática no browser)
+        this.tokenCookiesHelper.setTokenCookies(res, newTokens.accessToken, newTokens.refreshToken);
+
+        // Atualiza o header de autorização para a requisição atual
         req.headers.authorization = `Bearer ${newTokens.accessToken}`;
 
         return next();
@@ -88,4 +98,3 @@ export class TokenRefreshMiddleware implements NestMiddleware {
     return { accessToken, refreshToken };
   }
 }
-

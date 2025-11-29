@@ -4,10 +4,14 @@ import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+  
+  // Habilita parsing de cookies
+  app.use(cookieParser());
   
   app.useGlobalPipes(new ValidationPipe())
   app.useGlobalFilters(new HttpExceptionFilter());
@@ -16,6 +20,7 @@ async function bootstrap() {
   app.enableCors({
     origin: configService.get('CORS_ORIGIN') || '*',
     credentials: true,
+    exposedHeaders: ['x-access-token', 'x-refresh-token'], // Expõe headers de tokens
   });
 
   // Prefixo global para todas as rotas
