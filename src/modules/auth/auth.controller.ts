@@ -1,11 +1,12 @@
 import { Controller, Post, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -24,10 +25,54 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Fazer login' })
-  @ApiResponse({ status: 200, description: 'Login realizado com sucesso' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Login realizado com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        access_token: { type: 'string', description: 'Token de acesso JWT' },
+        refresh_token: { type: 'string', description: 'Token de refresh JWT' },
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            email: { type: 'string' },
+            name: { type: 'string' },
+            role: { type: 'string' },
+            avatarUrl: { type: 'string', nullable: true },
+          },
+        },
+      },
+    },
+  })
   @ApiResponse({ status: 401, description: 'Credenciais inválidas' })
   async login(@Request() req, @Body() loginDto: LoginDto) {
     return this.authService.login(req.user);
+  }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Renovar tokens de acesso usando refresh token' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Tokens renovados com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        access_token: { type: 'string', description: 'Novo token de acesso JWT' },
+        refresh_token: { type: 'string', description: 'Novo token de refresh JWT' },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: 'Refresh token inválido ou expirado' })
+  @ApiHeader({
+    name: 'x-refresh-token',
+    description: 'Alternativamente, o refresh token pode ser enviado via header',
+    required: false,
+  })
+  async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshTokens(refreshTokenDto.refreshToken);
   }
 
   @Post('request-password-reset')
