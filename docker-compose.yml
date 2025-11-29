@@ -34,6 +34,7 @@ services:
       - '3000:3000'
     environment:
       DATABASE_URL: postgresql://ieee:ieee_password@postgres:5432/ieee_db?schema=public
+      JWT_REFRESH_SECRET: your-super-secret-refresh-key
       JWT_SECRET: your-super-secret-jwt-key
       JWT_EXPIRATION: 7d
       PORT: 3000
