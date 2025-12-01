@@ -1,7 +1,7 @@
-FROM node:24-alpine
+FROM node:20-alpine
  
-# Isso é necessário para o Prisma Engine funcionar no Alpine
-RUN apk add --no-cache openssl
+# Dependências necessárias para Prisma e bcrypt
+RUN apk add --no-cache openssl python3 make g++
 
 WORKDIR /app
 
