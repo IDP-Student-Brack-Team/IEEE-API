@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { MinIOService } from '../src/storage/minio.service';
+import { MinIOService } from '../src/modules/storage/minio.service';
 
 describe('UploadsController (E2E)', () => {
   let app: INestApplication;

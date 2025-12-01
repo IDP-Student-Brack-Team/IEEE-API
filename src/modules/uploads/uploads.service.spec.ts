@@ -38,7 +38,7 @@ describe('UploadsService', () => {
 
     const result = await service.uploadImage(file);
 
-    expect(result.url).toBe('http://localhost:9000/images/test.png');
+    expect(result).toBe('http://localhost:9000/images/test.png');
   });
 });
 

@@ -4,9 +4,12 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { UploadsService } from './uploads.service';
 import { UploadsController } from './uploads.controller';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
   imports: [
+    StorageModule,
+    
     MulterModule.register({
       storage: diskStorage({
         destination: './uploads',

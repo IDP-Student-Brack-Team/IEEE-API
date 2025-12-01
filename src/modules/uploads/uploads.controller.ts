@@ -43,7 +43,7 @@ export class UploadsController {
       throw new BadRequestException('Nenhum arquivo foi enviado');
     }
 
-    const url = this.uploadsService.getFileUrl(file.filename);
+    const url = this.uploadsService.getFileUrl('uploads', file.filename);
 
     return {
       url,
@@ -58,7 +58,7 @@ export class UploadsController {
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Remover arquivo (Admin)' })
   async remove(@Param('filename') filename: string) {
-    await this.uploadsService.deleteFile(filename);
+    await this.uploadsService.deleteFile('uploads', filename);
     return { message: 'Arquivo removido com sucesso' };
   }
 }

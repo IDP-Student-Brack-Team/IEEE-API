@@ -3,10 +3,14 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { userPublicSelect } from './user.constants';
+import { MinIOService } from '../storage/minio.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+  private prisma: PrismaService,
+  private minioService: MinIOService
+) {}
 
   async create(createUserDto: CreateUserDto) {
     const user = await this.prisma.user.create({
@@ -30,6 +34,11 @@ export class UsersService {
     });
 
     if (!user) throw new NotFoundException('Usuário não encontrado');
+
+    if (user.avatarUrl) {
+      user.avatarUrl = await this.minioService.getFileUrl('avatars', user.avatarUrl);
+    }
+
     return user;
   }
 
@@ -118,6 +127,10 @@ export class UsersService {
 
     if (!userData) {
       throw new NotFoundException('Usuário não encontrado');
+    }
+
+    if (userData.avatarUrl) {
+      userData.avatarUrl = await this.minioService.getFileUrl('avatars', userData.avatarUrl);
     }
 
     return {
