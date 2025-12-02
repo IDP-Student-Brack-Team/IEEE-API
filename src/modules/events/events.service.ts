@@ -2,26 +2,27 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
-import { EventStatus } from '@prisma/client';
+import { EventStatus, Prisma } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MinIOService } from '../storage/minio.service';
 
 @Injectable()
 export class EventsService {
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
-  ) {}
+    private minioService: MinIOService,
+  ) { }
 
   private normalizeText(text: string): string {
-  if (!text) return '';
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, ''); // Remove acentos
-}
+    if (!text) return '';
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  }
 
   async create(createEventDto: CreateEventDto, userId: string) {
-    // Gerar slug a partir do título
     const slug = this.generateSlug(createEventDto.title);
 
     const event = await this.prisma.event.create({
@@ -45,7 +46,6 @@ export class EventsService {
       },
     });
 
-    // Notificar todos os usuários sobre novo evento (exceto o criador)
     if (event.status === EventStatus.PUBLISHED) {
       const users = await this.prisma.user.findMany({
         where: {
@@ -54,7 +54,6 @@ export class EventsService {
         select: { id: true },
       });
 
-      // Criar notificações para todos os usuários
       await Promise.all(
         users.map((user) =>
           this.notificationsService.create({
@@ -81,7 +80,7 @@ export class EventsService {
     const limit = filters?.limit ? Number(filters.limit) : 10;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.EventWhereInput = {};
 
     if (filters?.category) {
       where.category = filters.category;
@@ -92,18 +91,13 @@ export class EventsService {
     }
 
     if (filters?.search) {
-    // 1. Normaliza o termo de busca do usuário (ex: "Inteligência" vira "inteligencia")
-    const normalizedSearch = this.normalizeText(filters.search);
+      const normalizedSearch = this.normalizeText(filters.search);
+      const searchWords = normalizedSearch.split(' ').filter(Boolean);
 
-    // 2. Quebra a busca em palavras (ex: "inteligencia artificial" vira ['inteligencia', 'artificial'])
-    const searchWords = normalizedSearch.split(' ').filter(Boolean);
-
-    // 3. Diz ao Prisma: TODAS as palavras buscadas devem existir
-    where.AND = searchWords.map((word) => ({
-        // E cada palavra pode estar OU no título normalizado OU na descrição normalizada
+      where.AND = searchWords.map((word) => ({
         OR: [
-            { titleNormalized: { contains: word } },
-            { descriptionNormalized: { contains: word } },
+          { titleNormalized: { contains: word } },
+          { descriptionNormalized: { contains: word } },
         ],
       }));
     }
@@ -135,6 +129,20 @@ export class EventsService {
       }),
       this.prisma.event.count({ where }),
     ]);
+
+    for (const event of events) {
+      if (event.bannerUrl) {
+        event.bannerUrl = await this.minioService.getFileUrl(
+          'events',
+          event.bannerUrl,
+        );
+      }
+      if (event.images) {
+        for (const img of event.images) {
+          img.url = await this.minioService.getFileUrl('events', img.url);
+        }
+      }
+    }
 
     return {
       data: events,
@@ -197,6 +205,19 @@ export class EventsService {
       throw new NotFoundException('Evento não encontrado');
     }
 
+    if (event.bannerUrl) {
+      event.bannerUrl = await this.minioService.getFileUrl(
+        'events',
+        event.bannerUrl,
+      );
+    }
+
+    if (event.images && event.images.length > 0) {
+      for (const image of event.images) {
+        image.url = await this.minioService.getFileUrl('events', image.url);
+      }
+    }
+
     return event;
   }
 
@@ -227,37 +248,46 @@ export class EventsService {
       throw new NotFoundException('Evento não encontrado');
     }
 
+    if (event.bannerUrl) {
+      event.bannerUrl = await this.minioService.getFileUrl(
+        'events',
+        event.bannerUrl,
+      );
+    }
+
+    if (event.images && event.images.length > 0) {
+      for (const image of event.images) {
+        image.url = await this.minioService.getFileUrl('events', image.url);
+      }
+    }
+
     return event;
   }
 
   async update(id: string, updateEventDto: UpdateEventDto) {
-    // Objeto para guardar os dados que serão atualizados
     const dataToUpdate: any = { ...updateEventDto };
 
-    // VERIFICA: Se o título foi alterado...
     if (updateEventDto.title) {
-        // ... então, também atualiza o campo normalizado do título.
-        dataToUpdate.titleNormalized = this.normalizeText(updateEventDto.title);
+      dataToUpdate.titleNormalized = this.normalizeText(updateEventDto.title);
     }
-    // VERIFICA: Se a descrição foi alterada...
     if (updateEventDto.description) {
-        // ... então, também atualiza o campo normalizado da descrição.
-        dataToUpdate.descriptionNormalized = this.normalizeText(updateEventDto.description);
+      dataToUpdate.descriptionNormalized = this.normalizeText(
+        updateEventDto.description,
+      );
     }
 
     const event = await this.prisma.event.update({
-        where: { id },
-        // Usa o novo objeto com os dados normalizados
-        data: dataToUpdate,
-        include: {
-            createdBy: {
-                select: {
-                    id: true,
-                    name: true,
-                },
-            },
-            images: true,
+      where: { id },
+      data: dataToUpdate,
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+          },
         },
+        images: true,
+      },
     });
 
     return event;
@@ -275,10 +305,10 @@ export class EventsService {
     return title
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-      .replace(/[^\w\s-]/g, '') // Remove caracteres especiais
-      .replace(/\s+/g, '-') // Substitui espaços por hífens
-      .replace(/-+/g, '-') // Remove hífens duplicados
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
       .trim();
   }
 }
