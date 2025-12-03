@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { memoryStorage } from 'multer';
 import { UploadsService } from './uploads.service';
 import { UploadsController } from './uploads.controller';
 import { StorageModule } from '../storage/storage.module';
@@ -9,16 +8,9 @@ import { StorageModule } from '../storage/storage.module';
 @Module({
   imports: [
     StorageModule,
-    
+
     MulterModule.register({
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, callback) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          callback(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
-        },
-      }),
+      storage: memoryStorage(), // Usar memory storage para ter acesso ao buffer
       limits: {
         fileSize: 5 * 1024 * 1024, // 5MB
       },

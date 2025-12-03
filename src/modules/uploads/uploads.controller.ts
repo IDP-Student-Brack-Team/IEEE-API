@@ -38,16 +38,17 @@ export class UploadsController {
     },
   })
   @UseInterceptors(FileInterceptor('file'))
-  uploadImage(@UploadedFile() file: Express.Multer.File) {
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('Nenhum arquivo foi enviado');
     }
 
-    const url = this.uploadsService.getFileUrl('uploads', file.filename);
+    // Fazer upload real para o MinIO no bucket 'events'
+    const url = await this.uploadsService.uploadImage(file);
 
     return {
       url,
-      filename: file.filename,
+      filename: file.originalname,
       size: file.size,
       mimetype: file.mimetype,
     };
@@ -58,7 +59,7 @@ export class UploadsController {
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Remover arquivo (Admin)' })
   async remove(@Param('filename') filename: string) {
-    await this.uploadsService.deleteFile('uploads', filename);
+    await this.uploadsService.deleteFile('events', filename);
     return { message: 'Arquivo removido com sucesso' };
   }
 }
