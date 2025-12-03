@@ -26,7 +26,8 @@ export class AuthService {
     private configService: ConfigService,
   ) {
     this.jwtSecret = this.configService.get('JWT_SECRET');
-    this.jwtRefreshSecret = this.configService.get('JWT_REFRESH_SECRET') || this.jwtSecret + '_refresh';
+    this.jwtRefreshSecret =
+      this.configService.get('JWT_REFRESH_SECRET') || this.jwtSecret + '_refresh';
     this.accessTokenExpiration = this.configService.get('JWT_EXPIRATION') || '15m';
     this.refreshTokenExpiration = this.configService.get('JWT_REFRESH_EXPIRATION') || '7d';
   }
@@ -43,7 +44,7 @@ export class AuthService {
   async login(user: any) {
     const payload = { email: user.email, sub: user.id, role: user.role };
     const tokens = this.generateTokens(payload);
-    
+
     return {
       access_token: tokens.accessToken,
       refresh_token: tokens.refreshToken,

@@ -12,5 +12,5 @@ export const userPublicSelect: Prisma.UserSelect = {
   role: true,
   bio: true,
   avatarUrl: true,
-  createdAt: true
+  createdAt: true,
 };

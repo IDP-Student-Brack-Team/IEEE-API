@@ -8,9 +8,9 @@ import { MinIOService } from '../storage/minio.service';
 @Injectable()
 export class UsersService {
   constructor(
-  private prisma: PrismaService,
-  private minioService: MinIOService
-) {}
+    private prisma: PrismaService,
+    private minioService: MinIOService,
+  ) {}
 
   async create(createUserDto: CreateUserDto) {
     const user = await this.prisma.user.create({
@@ -122,7 +122,7 @@ export class UsersService {
         createdEvents: true,
         comments: true,
         registrations: true,
-      }
+      },
     });
 
     if (!userData) {
@@ -136,8 +136,7 @@ export class UsersService {
     return {
       personalData: userData,
       exportDate: new Date(),
-      format: 'json'
+      format: 'json',
     };
   }
 }
-
