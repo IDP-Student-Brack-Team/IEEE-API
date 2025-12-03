@@ -112,3 +112,6 @@ local.env
 tmp/
 temp/
 
+# Uploads directory (arquivos temporários antes do upload para MinIO)
+uploads/
+
