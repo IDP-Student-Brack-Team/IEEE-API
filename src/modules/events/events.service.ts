@@ -12,7 +12,7 @@ export class EventsService {
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
     private minioService: MinIOService,
-  ) { }
+  ) {}
 
   private normalizeText(text: string): string {
     if (!text) return '';
@@ -22,12 +22,52 @@ export class EventsService {
       .replace(/[\u0300-\u036f]/g, '');
   }
 
+  private extractFilenameFromUrl(url: string): string | null {
+    if (!url) return null;
+    // Se já for apenas um filename (sem http), retornar como está
+    if (!url.startsWith('http')) return url;
+    // Extrair filename da URL do MinIO
+    try {
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/');
+      return pathParts[pathParts.length - 1] || null;
+    } catch {
+      // Se não conseguir parsear, tentar extrair do final da string
+      const parts = url.split('/');
+      return parts[parts.length - 1]?.split('?')[0] || null;
+    }
+  }
+
+  private async processBannerUrl(bannerUrl: string | null | undefined): Promise<string | null> {
+    if (!bannerUrl) return null;
+
+    // Se já for uma URL completa (presigned), retornar como está
+    if (bannerUrl.startsWith('http://') || bannerUrl.startsWith('https://')) {
+      return bannerUrl;
+    }
+
+    // Se for apenas um filename, gerar URL presigned
+    const url = await this.minioService.getFileUrl('events', bannerUrl);
+    return url;
+  }
+
   async create(createEventDto: CreateEventDto, userId: string) {
     const slug = this.generateSlug(createEventDto.title);
+
+    // Processar bannerUrl: se for URL completa, extrair filename; se for filename, manter
+    let bannerUrlToSave = createEventDto.bannerUrl;
+    if (createEventDto.bannerUrl && createEventDto.bannerUrl.startsWith('http')) {
+      // Extrair filename da URL para salvar apenas o filename no banco
+      const filename = this.extractFilenameFromUrl(createEventDto.bannerUrl);
+      if (filename) {
+        bannerUrlToSave = filename;
+      }
+    }
 
     const event = await this.prisma.event.create({
       data: {
         ...createEventDto,
+        bannerUrl: bannerUrlToSave,
         slug,
         createdById: userId,
         status: createEventDto.status || EventStatus.DRAFT,
@@ -45,6 +85,11 @@ export class EventsService {
         images: true,
       },
     });
+
+    // Gerar URL presigned para o banner
+    if (event.bannerUrl) {
+      event.bannerUrl = await this.processBannerUrl(event.bannerUrl);
+    }
 
     if (event.status === EventStatus.PUBLISHED) {
       const users = await this.prisma.user.findMany({
@@ -132,14 +177,13 @@ export class EventsService {
 
     for (const event of events) {
       if (event.bannerUrl) {
-        event.bannerUrl = await this.minioService.getFileUrl(
-          'events',
-          event.bannerUrl,
-        );
+        event.bannerUrl = await this.processBannerUrl(event.bannerUrl);
       }
       if (event.images) {
         for (const img of event.images) {
-          img.url = await this.minioService.getFileUrl('events', img.url);
+          if (img.url) {
+            img.url = await this.processBannerUrl(img.url);
+          }
         }
       }
     }
@@ -206,15 +250,14 @@ export class EventsService {
     }
 
     if (event.bannerUrl) {
-      event.bannerUrl = await this.minioService.getFileUrl(
-        'events',
-        event.bannerUrl,
-      );
+      event.bannerUrl = await this.processBannerUrl(event.bannerUrl);
     }
 
     if (event.images && event.images.length > 0) {
       for (const image of event.images) {
-        image.url = await this.minioService.getFileUrl('events', image.url);
+        if (image.url) {
+          image.url = await this.processBannerUrl(image.url);
+        }
       }
     }
 
@@ -249,15 +292,14 @@ export class EventsService {
     }
 
     if (event.bannerUrl) {
-      event.bannerUrl = await this.minioService.getFileUrl(
-        'events',
-        event.bannerUrl,
-      );
+      event.bannerUrl = await this.processBannerUrl(event.bannerUrl);
     }
 
     if (event.images && event.images.length > 0) {
       for (const image of event.images) {
-        image.url = await this.minioService.getFileUrl('events', image.url);
+        if (image.url) {
+          image.url = await this.processBannerUrl(image.url);
+        }
       }
     }
 
@@ -271,9 +313,7 @@ export class EventsService {
       dataToUpdate.titleNormalized = this.normalizeText(updateEventDto.title);
     }
     if (updateEventDto.description) {
-      dataToUpdate.descriptionNormalized = this.normalizeText(
-        updateEventDto.description,
-      );
+      dataToUpdate.descriptionNormalized = this.normalizeText(updateEventDto.description);
     }
 
     const event = await this.prisma.event.update({
