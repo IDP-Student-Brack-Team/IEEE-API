@@ -41,8 +41,6 @@ import { MailModule } from '../mail/mail.module';
 })
 export class AuthModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(TokenRefreshMiddleware)
-      .forRoutes('*');
+    consumer.apply(TokenRefreshMiddleware).forRoutes('*');
   }
 }

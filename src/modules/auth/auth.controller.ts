@@ -1,4 +1,13 @@
-import { Controller, Post, Body, UseGuards, Request, Response, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Request,
+  Response,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
 import { Response as ExpressResponse } from 'express';
 import { AuthService } from './auth.service';
@@ -22,7 +31,10 @@ export class AuthController {
   @ApiOperation({ summary: 'Cadastrar novo usuário' })
   @ApiResponse({ status: 201, description: 'Usuário criado com sucesso' })
   @ApiResponse({ status: 409, description: 'E-mail ou matrícula já cadastrados' })
-  async register(@Body() registerDto: RegisterDto, @Response({ passthrough: true }) res: ExpressResponse) {
+  async register(
+    @Body() registerDto: RegisterDto,
+    @Response({ passthrough: true }) res: ExpressResponse,
+  ) {
     const result = await this.authService.register(registerDto);
     this.tokenCookiesHelper.setTokenCookies(res, result.access_token, result.refresh_token);
     return result;
@@ -32,8 +44,8 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Fazer login' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Login realizado com sucesso',
     schema: {
       type: 'object',
@@ -67,8 +79,8 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Renovar tokens de acesso usando refresh token' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Tokens renovados com sucesso',
     schema: {
       type: 'object',

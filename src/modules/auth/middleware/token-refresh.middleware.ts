@@ -17,14 +17,15 @@ export class TokenRefreshMiddleware implements NestMiddleware {
     private readonly tokenCookiesHelper: TokenCookiesHelper,
   ) {
     this.jwtSecret = this.configService.get('JWT_SECRET');
-    this.jwtRefreshSecret = this.configService.get('JWT_REFRESH_SECRET') || this.jwtSecret + '_refresh';
+    this.jwtRefreshSecret =
+      this.configService.get('JWT_REFRESH_SECRET') || this.jwtSecret + '_refresh';
     this.accessTokenExpiration = this.configService.get('JWT_EXPIRATION') || '15m';
     this.refreshTokenExpiration = this.configService.get('JWT_REFRESH_EXPIRATION') || '7d';
   }
 
   async use(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers.authorization;
-    
+
     // Aceita refresh token via header OU cookie
     const refreshToken = (req.headers['x-refresh-token'] as string) || req.cookies?.refresh_token;
 

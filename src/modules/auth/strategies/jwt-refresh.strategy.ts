@@ -11,21 +11,19 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
       jwtFromRequest: ExtractJwt.fromExtractors([
         (request: Request) => {
           // Extrai o refresh token do header 'x-refresh-token' ou do body
-          return (
-            request?.headers?.['x-refresh-token'] as string ||
-            request?.body?.refreshToken
-          );
+          return (request?.headers?.['x-refresh-token'] as string) || request?.body?.refreshToken;
         },
       ]),
       ignoreExpiration: false,
-      secretOrKey: configService.get('JWT_REFRESH_SECRET') || configService.get('JWT_SECRET') + '_refresh',
+      secretOrKey:
+        configService.get('JWT_REFRESH_SECRET') || configService.get('JWT_SECRET') + '_refresh',
     });
   }
 
   async validate(payload: any) {
     // Verifica se é um refresh token válido (tem a flag isRefreshToken)
-    if (!payload.isRefreshToken)  return null;
-    
+    if (!payload.isRefreshToken) return null;
+
     return {
       id: payload.sub,
       email: payload.email,
@@ -33,4 +31,3 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     };
   }
 }
-
