@@ -7,9 +7,7 @@ import { MinIOService } from '../src/modules/storage/minio.service';
 describe('UploadsController (E2E)', () => {
   let app: INestApplication;
 
-  const mockUpload = jest.fn().mockResolvedValue(
-    'http://localhost:9000/images/uploaded.png',
-  );
+  const mockUpload = jest.fn().mockResolvedValue('http://localhost:9000/images/uploaded.png');
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
@@ -31,13 +29,10 @@ describe('UploadsController (E2E)', () => {
       .attach('file', Buffer.from('abcd'), 'foto.png')
       .expect(201);
 
-    expect(res.body.url).toBe(
-      'http://localhost:9000/images/uploaded.png',
-    );
+    expect(res.body.url).toBe('http://localhost:9000/images/uploaded.png');
   });
 
   afterAll(async () => {
     await app.close();
   });
 });
-
